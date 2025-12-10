@@ -1,0 +1,7 @@
+{
+  "name": "Memory Particle Cloud",
+  "description": "A 3D interactive gesture gallery where particles morph into shapes and reveal hidden memories.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
