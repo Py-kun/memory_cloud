@@ -84,14 +84,16 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
     const loader = new THREE.TextureLoader();
 
     // --- PHOTO LOADING LOGIC ---
-    // If you have local photos in an "images" folder named 1.jpg to 20.jpg:
-    // Change useLocalPhotos to true.
-    const useLocalPhotos = false; 
+    // User will manually provide images/1.jpg through images/15.jpg in the public folder
+    const totalLocalPhotos = 15;
 
     for (let i = 0; i < config.photoCount; i++) {
-        const url = useLocalPhotos 
-            ? `./images/${(i % 20) + 1}.jpg` // Local path
-            : `https://picsum.photos/400/400?random=${i + 100}`; // Random nice placeholder
+        // Cycle through 1 to 15
+        const photoIndex = (i % totalLocalPhotos) + 1;
+        
+        // Load from /images/{1-15}.jpg
+        // Note: In Vite, assets in 'public/images' are served at '/images'
+        const url = `/images/${photoIndex}.jpg`;
             
         const tex = loader.load(url);
         photoTextures.push(tex);
@@ -100,7 +102,7 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
             map: tex, 
             transparent: true, 
             opacity: 0.0, // Start invisible
-            blending: THREE.AdditiveBlending,
+            blending: THREE.AdditiveBlending, // Additive makes them glowy
             color: new THREE.Color(primaryColor) // Tint with theme initially
         });
         const sprite = new THREE.Sprite(pMat);
@@ -171,13 +173,15 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
             // Visual Reveal Logic
             if (isRevealing) {
                 // Reveal: Full opacity, white color (shows original photo), larger size
+                // When revealing, we set blending to Normal if we want to see the photo clearly, 
+                // but Additive keeps it "holographic". Let's stick to opacity boost.
                 sprite.material.opacity += (1.0 - sprite.material.opacity) * 0.05;
-                sprite.material.color.lerp(new THREE.Color(0xffffff), 0.05);
+                sprite.material.color.lerp(new THREE.Color(0xffffff), 0.05); // Fade to white (original colors)
                 const targetSize = 4.0;
                 sprite.scale.lerp(new THREE.Vector3(targetSize, targetSize, 1), 0.05);
             } else {
                 // Hide: Low opacity, tinted with theme color, smaller size
-                sprite.material.opacity += (0.1 - sprite.material.opacity) * 0.05;
+                sprite.material.opacity += (0.15 - sprite.material.opacity) * 0.05;
                 sprite.material.color.lerp(new THREE.Color(primaryColor), 0.1);
                 const targetSize = 1.5;
                 sprite.scale.lerp(new THREE.Vector3(targetSize, targetSize, 1), 0.1);
