@@ -21,7 +21,6 @@ interface ExperienceProps {
 
 const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onStateChange, config, inputVideoRef }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  // Removed local videoRef, using inputVideoRef instead
   
   // Internal state refs to avoid closure staleness in animation loops
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -93,18 +92,23 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
         const photoIndex = (i % totalLocalPhotos) + 1;
         
         // Load from /images/{1-15}.jpg
-        // Note: In Vite, assets in 'public/images' are served at '/images'
         const url = `/images/${photoIndex}.jpg`;
             
         const tex = loader.load(url);
+        // Correct color space for realistic photo rendering
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
         photoTextures.push(tex);
 
         const pMat = new THREE.SpriteMaterial({ 
             map: tex, 
             transparent: true, 
             opacity: 0.0, // Start invisible
-            blending: THREE.AdditiveBlending, // Additive makes them glowy
-            color: new THREE.Color(primaryColor) // Tint with theme initially
+            // CHANGED: Use NormalBlending to make photos solid and clear, not washed out
+            blending: THREE.NormalBlending, 
+            depthWrite: false, // Keep false for cloud effect, but since it's NormalBlending, they will look solid
+            color: new THREE.Color(0xffffff) // Start white to avoid tinting logic issues initially
         });
         const sprite = new THREE.Sprite(pMat);
         sprite.scale.set(1.5, 1.5, 1.5);
@@ -147,9 +151,9 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
         }
         particles.geometry.attributes.position.needsUpdate = true;
         
-        // Rotate cloud gently
-        particles.rotation.y += 0.001;
-        photoGroup.rotation.y += 0.001;
+        // Rotate cloud gently (CHANGED: Faster rotation as requested)
+        particles.rotation.y += 0.003;
+        photoGroup.rotation.y += 0.003;
 
         // 2. Update Photos (The "Hidden Memory" Effect)
         // Photos are hidden in the cloud, but when scale > 1.2 (hand open), they expand and reveal.
@@ -173,18 +177,23 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
 
             // Visual Reveal Logic
             if (isRevealing) {
-                // Reveal: Full opacity, white color (shows original photo), larger size
-                // When revealing, we set blending to Normal if we want to see the photo clearly, 
-                // but Additive keeps it "holographic". Let's stick to opacity boost.
-                sprite.material.opacity += (1.0 - sprite.material.opacity) * 0.05;
-                sprite.material.color.lerp(new THREE.Color(0xffffff), 0.05); // Fade to white (original colors)
-                const targetSize = 4.0;
-                sprite.scale.lerp(new THREE.Vector3(targetSize, targetSize, 1), 0.05);
+                // CHANGED: Logic for dynamic scaling based on hand gesture
+                // Scale typically goes up to ~2.5 depending on hand openness. 
+                // We map the excess scale (amount above 1.3) to image size.
+                const excessScale = Math.max(0, scale - revealThreshold);
+                // Base size 3.0 + dynamic growth. The wider the hand, the bigger the photo.
+                const dynamicSize = 3.0 + (excessScale * 6.0); 
+
+                // Reveal: Full opacity, pure white (no tint), dynamic size
+                sprite.material.opacity += (1.0 - sprite.material.opacity) * 0.1;
+                sprite.material.color.lerp(new THREE.Color(0xffffff), 0.1); // No tint
+                
+                sprite.scale.lerp(new THREE.Vector3(dynamicSize, dynamicSize, 1), 0.1);
             } else {
-                // Hide: Low opacity, tinted with theme color, smaller size
-                sprite.material.opacity += (0.15 - sprite.material.opacity) * 0.05;
+                // Hide: Very low opacity, tinted with theme color, small size
+                sprite.material.opacity += (0.05 - sprite.material.opacity) * 0.1;
                 sprite.material.color.lerp(new THREE.Color(primaryColor), 0.1);
-                const targetSize = 1.5;
+                const targetSize = 0.5; // Make them tiny when hidden
                 sprite.scale.lerp(new THREE.Vector3(targetSize, targetSize, 1), 0.1);
             }
         });
