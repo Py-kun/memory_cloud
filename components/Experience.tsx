@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { AppConfig, ParticleState, ShapeType } from '../types';
 import { getPointOnShape } from '../utils/geometry';
@@ -16,11 +16,12 @@ interface ExperienceProps {
   primaryColor: string;
   onStateChange: (state: ParticleState) => void;
   config: AppConfig;
+  inputVideoRef: React.RefObject<HTMLVideoElement>; // Accept video ref from parent
 }
 
-const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onStateChange, config }) => {
+const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onStateChange, config, inputVideoRef }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Removed local videoRef, using inputVideoRef instead
   
   // Internal state refs to avoid closure staleness in animation loops
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -238,7 +239,7 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
 
   // MediaPipe Setup
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!inputVideoRef.current) return;
 
     const onResults = (results: any) => {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -282,9 +283,12 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
 
     hands.onResults(onResults);
 
-    const camera = new window.Camera(videoRef.current, {
+    // Initialize Camera using the passed ref
+    const camera = new window.Camera(inputVideoRef.current, {
         onFrame: async () => {
-            await hands.send({image: videoRef.current});
+             if (inputVideoRef.current) {
+                await hands.send({image: inputVideoRef.current});
+             }
         },
         width: 320,
         height: 240
@@ -293,15 +297,14 @@ const Experience: React.FC<ExperienceProps> = ({ currentShape, primaryColor, onS
     camera.start();
 
     return () => {
-       // Cleanup if necessary, though MediaPipe instances usually persist well
+       // Cleanup if necessary
     };
   }, []);
 
   return (
     <>
         <div ref={mountRef} className="absolute inset-0 z-0" />
-        {/* Hidden video element for processing */}
-        <video ref={videoRef} className="hidden" playsInline muted />
+        {/* We no longer render the video here; parent renders it */}
     </>
   );
 };
